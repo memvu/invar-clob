@@ -64,15 +64,19 @@ struct OrderRequest {
    std::optional<price_type> stopPrice;
 };
 
+struct ReplaceOrderRequest {
+   id_type orderId;
+   quantity_type new_quantity{0};
+   price_type new_price{0};
+};
+
+struct CancelOrderRequest {
+   id_type orderId;
+};
+
 struct OrderRecord : OrderRequest {
    id_type orderId;
    id_type clientId;
-};
-
-// modify order request is just an accepted order with a new quantity/price
-struct ReplaceOrderRequest : OrderRecord {
-   quantity_type new_quantity{0};
-   price_type new_price{0};
 };
 
 class MatchingEngine {
