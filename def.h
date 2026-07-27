@@ -92,7 +92,8 @@ private:
    std::vector<std::unique_ptr<Client>> clients_;
    std::unordered_map<id_type, Client *> idToClient_;
    std::unordered_map<id_type, OrderRecord> idToOrder_;
-   L3OrderBook internal_l3_;
+
+   std::unordered_map<Instrument, L3OrderBook> internal_l3s_;
 
    id_type curClientId_{1};
 
