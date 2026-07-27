@@ -1,2 +1,4 @@
-Pulse-Order/
+Pulse-Order-Reference/
 DESIGN_JOURNAL.md
+.clangd
+*.o

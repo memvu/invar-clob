@@ -105,13 +105,22 @@ L3 means that individual resting orders and their quantities are retained.
 
 Individual order state is required for cancel, replace, queue priority, ownership, self-trade prevention, and pro-rata allocation.
 
-The planned internal structure is an ordered bid and ask price structure with a stable per-price order queue.
+The internal L3 state model is defined per `InstrumentId`.
 
-An order-ID index will support direct lookup for cancel and replace.
+### State components
 
-A likely correctness-first C++ representation is an ordered map, a stable linked queue, and an order-ID index.
+- **Price-level Queues**: ordered structure (descending bids, ascending asks) mapping `Price` to `PriceLevel`.
+- **PriceLevel**: contains a stable queue of `OrderRecord`s.
+- **OrderRecord**: stores `OrderId`, `ClientId`, `Side`, `OrderType`, `Price`, `StopPrice`, `RemainingQuantity`, `ExecutedQuantity`, lifecycle `State`, and arrival sequence (for deterministic time tie-breaking).
+- **Order Index**: direct `OrderId -> OrderRecord` lookup for O(1) cancel/replace capability.
+- **Stop Registry**: segregated ordered lists of inactive stops awaiting a last-trade price trigger.
+- **Last Trade State**: tracks the last traded price to drive stop activation.
 
-The exact standard-library containers are not locked yet.
+The Order Index and Stop Registry are secondary indexes over the authoritative `OrderRecord`s. They must remain perfectly consistent with the price-level queues.
+
+### L2 Derivation
+
+Public aggregate quantities are strictly derived by summing `RemainingQuantity` across all active `OrderRecord`s in a `PriceLevel`.
 
 ### Public state
 
@@ -184,6 +193,86 @@ A stop-market order forbids a limit price.
 A stop-limit order requires side, positive bounded quantity, positive bounded stop trigger, positive bounded limit price, and client ID.
 
 A stop-limit order has no additional forbidden price field.
+
+## Time in force
+
+Version one will support good-till-cancelled, immediate-or-cancel, and fill-or-kill policies.
+
+No date-based or session-based expiration policy will be supported.
+
+### Policy semantics
+
+A good-till-cancelled order may rest until it is fully filled or explicitly cancelled.
+
+An immediate-or-cancel order will execute available quantity immediately and cancel any remainder.
+
+An immediate-or-cancel order may be partially filled.
+
+A fill-or-kill order must execute its entire remaining quantity immediately or be cancelled without a partial fill.
+
+Fill-and-kill terminology will map to immediate-or-cancel semantics rather than use a separate policy.
+
+A market order will never rest, regardless of its time-in-force policy.
+
+An unfilled market-order remainder will be cancelled.
+
+### Supported combinations
+
+Limit orders may use good-till-cancelled, immediate-or-cancel, or fill-or-kill.
+
+Market orders may use immediate-or-cancel or fill-or-kill.
+
+Stop-market orders may use good-till-cancelled in version one.
+
+Stop-limit orders may use good-till-cancelled in version one.
+
+Immediate policies for dormant or triggered stop orders are deferred.
+
+Unsupported order-type and time-in-force combinations will be rejected rather than silently normalized.
+
+Date-based policies such as day and good-till-date are out of scope.
+
+Fill-and-kill, day, and good-till-date are not separate version-one time-in-force values.
+
+
+
+## Command contracts
+
+Commands drive the engine deterministically.
+
+### Types
+
+- **InstrumentId**: explicit boundary identifier (e.g., uint32_t).
+- **ClientId**: engine-assigned identity for a registered client instance.
+- **ClientOrderId**: intentionally deferred from v1; a future adapter-level request-correlation identifier, not part of matching-core state.
+- **OrderId**: engine-assigned monotonic identifier for an accepted order.
+- **Price / Quantity**: positive bounded integers.
+- **TimeInForce**: explicit execution-lifetime policy selected from good-till-cancelled, immediate-or-cancel, and fill-or-kill.
+
+### Commands
+
+- **SubmitOrder**: registered `Client` handle, `InstrumentId`, `Side`, `OrderType`, `TimeInForce`, `Quantity`, optional `Price` (limit), optional `StopPrice` (stop).
+- **CancelOrder**: registered `Client` handle, `InstrumentId`, `OrderId`.
+- **ReplaceOrder**: registered `Client` handle, `InstrumentId`, `OrderId`, new total `Quantity`, optional new `Price`.
+
+## Event contracts
+
+A command produces one atomic `EventBatch`.
+
+### Batch Structure
+
+- **Engine Sequence**: strictly monotonic sequence assigned to the batch.
+- **Command Result**: `Accepted` (carrying engine `OrderId`) or `Rejected` (carrying reason).
+- **Executions**: ordered list of `Trade`, `OrderTriggered`, `OrderCancelled`, `OrderReplaced`.
+- **L2 Updates**: ordered list of `L2Delta` resulting from the command.
+
+### Event Fields
+
+- **Trade**: `MakerOrderId`, `TakerOrderId`, `Price`, `Quantity`.
+- **OrderCancelled**: `OrderId`, `Reason` (user request, unfilled market remainder, self-trade remainder).
+- **OrderReplaced**: `OrderId`, new total `Quantity`, optional new `Price`.
+- **OrderTriggered**: `OrderId`, resulting active `OrderType`.
+- **L2Delta**: `InstrumentId`, `Side`, `Price`, new aggregate `Quantity` (0 removes level).
 
 ## Matching priority
 
@@ -261,23 +350,38 @@ A stop accepted before the first trade will wait for a future trade.
 
 ## Order identity and ownership
 
-The engine will assign canonical order IDs.
+The engine will assign a canonical `ClientId` when `create_client()` creates a registered client instance.
 
-The accepted event will return the assigned order ID to the client.
+The in-process submit, cancel, and replace APIs will accept a registered `Client` handle rather than an arbitrary caller-supplied `ClientId`.
 
-Each order will carry a client ID.
+The v1 `Client` instance will not generate or carry a `ClientOrderId`; synchronous request correlation uses the returned `OrderId`.
 
-Client ID ownership will be used for self-trade prevention.
+The engine will assign a canonical `OrderId` after an order passes validation and before matching begins.
+
+Rejected commands will not receive an `OrderId` and will not mutate authoritative order state.
+
+The accepted event will return the assigned `OrderId` to the client.
+
+Each v1 order will carry its `ClientId`. The engine-assigned `OrderId` is the canonical order identity.
+
+The engine will verify that the `Client` handle is registered and owns an order before processing cancel or replace commands.
+
+Client identity will be used for self-trade prevention.
+
+Client IDs will not be reused while the corresponding engine identity scope remains active.
+
+Future network ingress will resolve an authenticated remote caller to a registered `ClientId` before passing a command to the matching core.
+A future network adapter may add a `ClientOrderId` for caller correlation without adding it to matching-core state or retry semantics.
 
 ## Order lifecycle
 
 Version one will support submit, cancel, and replace.
 
-Orders will be good-till-cancelled by default.
+Orders will carry an explicit time-in-force policy.
 
-Immediate-or-cancel is deferred.
+Good-till-cancelled will be the default `TimeInForce` value.
 
-Fill-or-kill is deferred.
+Immediate-or-cancel and fill-or-kill will apply their defined remainder rules during matching.
 
 A completed order cannot be cancelled or replaced.
 
@@ -292,12 +396,19 @@ Replace quantity represents the new total remaining quantity.
 A replacement is rejected if its requested quantity is below quantity already executed.
 
 ## Self-trade prevention
+If an incoming order would match a resting order belonging to the same `ClientId`, earlier fills against other clients remain valid, but the incoming order's remaining quantity is immediately cancelled.
 
-If an incoming order would match an order from the same client, the incoming remainder will be cancelled.
+The resting same-client order remains unchanged.
 
-Earlier fills against other clients will remain valid.
+## Deterministic API
 
-The resting same-client order will remain unchanged.
+The engine API is a synchronous, transport-free interface.
+
+- **EngineConfig**: immutable configuration holding `InstrumentId`, `MatchingPolicy` (PriceTime vs ProRata), `MaxPrice`, and `MaxQuantity`.
+- **Construction**: `MatchingEngine(const EngineConfig&)` guarantees fixed invariants for the lifetime of the engine.
+- **Execution**: `EventBatch process(const Command& cmd)` executes one command atomically and synchronously returns the resulting event batch.
+- **View**: `const L2Snapshot get_snapshot() const` provides a read-only copy of the resting aggregate state for late joiners or recovery.
+- **Determinism**: No system clocks. Time priority is based on monotonic arrival sequences or explicit deterministic sequence generation. Replaying a command stream produces exactly the same `EventBatch` stream.
 
 ## Command failure behavior
 
@@ -326,12 +437,7 @@ The engine will use one monotonically increasing sequence across all commands.
 All events from one command batch will share the command sequence.
 
 Events inside a batch will carry an ordered event index.
-
-Candidate command results include accepted and rejected statuses.
-
-Candidate execution events include trades, fills, cancellations, replacements, and stop triggers.
-
-The final event schema remains an implementation-level design question.
+Event schema details are defined in the Command and Event contracts section above.
 
 ## Invariants
 
@@ -375,11 +481,9 @@ This roadmap is not being executed by the assistant.
 
 ### Stage 1: Pure core
 
-Define command types, order types, price and quantity types, events, and engine configuration.
-
-Define the authoritative L3 state model.
-
-Define the deterministic engine API.
+- [x] Define command types, order types, price and quantity types, events, and engine configuration.
+- [x] Define the authoritative L3 state model.
+- [x] Define the deterministic engine API.
 
 ### Stage 2: Limit and price-time matching
 
