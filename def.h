@@ -9,22 +9,26 @@
 #include <memory>
 #include <map>
 #include <queue>
+#include <unordered_set>
 
 using quantity_type = std::size_t;
 using price_type = std::int32_t;
 using id_type = std::uint64_t;
 class Client;
 
+struct EngineConfig {
+   enum class PriorityAlg { PriceTime, Prorata };
+   enum class Instrument { AAPL, SPCX };
+
+   PriorityAlg alg;
+   Instrument instrument;
+};
+
 enum class Side { Buy, Sell };
 
 enum class OrderType { LimitOrder, MarketOrder, StopMarketOrder, StopLimitOrder };
 
 enum class TimeInForcePolicy { GoodTillCancel, ImmediateOrCancel, FillOrKill };
-
-enum class PriorityAlg { PriceTime, Prorata };
-
-// add more in future
-enum class Instrument { AAPL, SPCX };
 
 struct EventBatch {
    enum class CommandResult { Accepted, Rejected, None };
@@ -59,7 +63,6 @@ struct EventBatch {
 };
 
 struct SubmitOrderRequest {
-   Instrument stock;
    Side side;
    OrderType orderType;
    TimeInForcePolicy tifPolicy;
@@ -86,7 +89,7 @@ struct OrderRecord : SubmitOrderRequest {
 class MatchingEngine {
 private:
    // default
-   const PriorityAlg priority_{PriorityAlg::PriceTime};
+   const EngineConfig config_;
 
    class L3OrderBook {
       using PriceLevel = std::vector<id_type>;
@@ -94,14 +97,14 @@ private:
       std::map<price_type, PriceLevel, std::greater<price_type>> bids_;
       std::map<price_type, PriceLevel, std::less<price_type>> asks_;
 
-      std::vector<id_type> resting_limits_;
+      std::unordered_set<id_type> inert_stop_orders_;
    };
 
    std::vector<std::unique_ptr<Client>> clients_;
    std::unordered_map<id_type, Client *> idToClient_;
    std::unordered_map<id_type, OrderRecord> idToOrder_;
 
-   std::unordered_map<Instrument, L3OrderBook> internal_l3s_;
+   L3OrderBook internal_l3s_;
 
    id_type curClientId_{1};
 
@@ -110,8 +113,8 @@ private:
    };
 
 public:
-   explicit MatchingEngine(PriorityAlg alg)
-       : priority_{alg} {};
+   explicit MatchingEngine(const EngineConfig &cfg)
+       : config_{cfg} {};
    MatchingEngine(const MatchingEngine &rhs) = delete;
    MatchingEngine operator=(const MatchingEngine &rhs) = delete;
    MatchingEngine(MatchingEngine &&rhs) = delete;
