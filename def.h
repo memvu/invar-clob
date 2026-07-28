@@ -31,28 +31,31 @@ struct EventBatch {
    // add more reason later
    enum class RejectReason { None, InvalidCLientId, InvalidQuantity, InvalidInstrument };
 
-   CommandResult result{CommandResult::None};
-   std::optional<id_type> orderId;
-
    struct Trade {
       id_type buySideId;
       id_type sellSideId;
-      quantity_type traded_quantity;
+      price_type price;
+      quantity_type quantity;
    };
 
    struct OrderCancelled {
+      enum class CancelReason { UserRequest, UnfilledMarketRemainder, SelfTradeRemainder };
       id_type orderId;
+      CancelReason reason;
    };
 
    struct OrderReplaced {
       id_type orderId;
-      quantity_type new_quantity;
-      price_type new_price;
+      quantity_type newQuantity;
+      price_type newPrice;
    };
 
    struct L2Delta {
       std::vector<Trade> trades;
    };
+
+   CommandResult result{CommandResult::None};
+   std::optional<RejectReason> rejectReason;
 };
 
 struct SubmitOrderRequest {
