@@ -22,22 +22,22 @@ decltype(auto) Client::getOrderRecord(id_type orderId) const {
    return owner_->getOrderRecord(*this, orderId);
 }
 
-EventBatch Client::submitOrder(OrderRequest order_request) {
+EventBatch Client::submitOrder(SubmitOrderRequest order_request) {
    return owner_->submitOrder(*this, order_request);
 }
 
-EventBatch Client::cancelOrder(id_type orderId) {
-   return owner_->cancelOrder(*this, orderId);
+EventBatch Client::cancelOrder(CancelOrderRequest cancelOrderRequest) {
+   return owner_->cancelOrder(*this, cancelOrderRequest);
 }
 
 EventBatch Client::replaceOrder(ReplaceOrderRequest replaceOrderRequest) {
    return owner_->replaceOrder(*this, replaceOrderRequest);
 }
 
-EventBatch MatchingEngine::submitOrder(const Client &client, OrderRequest orderRequest) {
+EventBatch MatchingEngine::submitOrder(const Client &client, SubmitOrderRequest orderRequest) {
 }
 
-EventBatch MatchingEngine::cancelOrder(const Client &client, id_type orderId) {
+EventBatch MatchingEngine::cancelOrder(const Client &client, CancelOrderRequest cancelOrderRequest) {
 }
 
 EventBatch MatchingEngine::replaceOrder(const Client &client, ReplaceOrderRequest replaceOrderRequest) {

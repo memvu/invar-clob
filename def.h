@@ -21,8 +21,6 @@ enum class OrderType { LimitOrder, MarketOrder, StopMarketOrder, StopLimitOrder 
 
 enum class TimeInForcePolicy { GoodTillCancel, ImmediateOrCancel, FillOrKill };
 
-enum class CommandType { AddOrder, CancelOrder, ReplaceOrder };
-
 enum class PriorityAlg { PriceTime, Prorata };
 
 // add more in future
@@ -39,23 +37,26 @@ struct EventBatch {
    struct Trade {
       id_type buySideId;
       id_type sellSideId;
-      quantity_type quantity;
+      quantity_type traded_quantity;
    };
 
    struct OrderCancelled {
-      std::optional<RejectReason> rejectReason;
+      id_type orderId;
    };
 
    struct OrderReplaced {
-      std::optional<RejectReason> rejectReason;
+      id_type orderId;
+      quantity_type new_quantity;
+      price_type new_price;
    };
 
-   struct L2Delta {};
+   struct L2Delta {
+      std::vector<Trade> trades;
+   };
 };
 
-struct OrderRequest {
+struct SubmitOrderRequest {
    Instrument stock;
-   CommandType commandType;
    Side side;
    OrderType orderType;
    TimeInForcePolicy tifPolicy;
@@ -74,7 +75,7 @@ struct CancelOrderRequest {
    id_type orderId;
 };
 
-struct OrderRecord : OrderRequest {
+struct OrderRecord : SubmitOrderRequest {
    id_type orderId;
    id_type clientId;
 };
@@ -110,16 +111,14 @@ public:
        : priority_{alg} {};
    MatchingEngine(const MatchingEngine &rhs) = delete;
    MatchingEngine operator=(const MatchingEngine &rhs) = delete;
-
-   // should move ctor be disabled?
    MatchingEngine(MatchingEngine &&rhs) = delete;
    MatchingEngine operator=(MatchingEngine &&rhs) = delete;
 
    const Client &createClient();
    decltype(auto) getOrderRecord(const Client &client, id_type orderId) const;
 
-   EventBatch submitOrder(const Client &client, OrderRequest orderRequest);
-   EventBatch cancelOrder(const Client &client, id_type orderId);
+   EventBatch submitOrder(const Client &client, SubmitOrderRequest submitOrderRequest);
+   EventBatch cancelOrder(const Client &client, CancelOrderRequest cancelOrderRequest);
    EventBatch replaceOrder(const Client &client, ReplaceOrderRequest replaceOrderRequest);
 };
 
@@ -136,8 +135,8 @@ private:
 public:
    id_type getClientId() const;
    decltype(auto) getOrderRecord(id_type orderId) const;
-   EventBatch submitOrder(OrderRequest orderRequest);
-   EventBatch cancelOrder(id_type orderId);
+   EventBatch submitOrder(SubmitOrderRequest orderRequest);
+   EventBatch cancelOrder(CancelOrderRequest cancelOrderRequest);
    EventBatch replaceOrder(ReplaceOrderRequest replaceOrderRequest);
 
    // explicitly prohibit copying/moving clients
