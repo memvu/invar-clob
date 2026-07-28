@@ -89,7 +89,7 @@ private:
    const PriorityAlg priority_{PriorityAlg::PriceTime};
 
    class L3OrderBook {
-      using PriceLevel = std::vector<id_type>; // for prorata
+      using PriceLevel = std::vector<id_type>;
 
       std::map<price_type, PriceLevel, std::greater<price_type>> bids_;
       std::map<price_type, PriceLevel, std::less<price_type>> asks_;
