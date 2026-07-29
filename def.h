@@ -11,14 +11,17 @@
 #include <queue>
 #include <unordered_set>
 
+namespace clob {
+
 using quantity_type = std::size_t;
-using price_type = std::int32_t;
+using price_type = std::int64_t;
 using id_type = std::uint64_t;
 class Client;
 
+enum class Instrument { AAPL, SPCX };
+
 struct EngineConfig {
    enum class PriorityAlg { PriceTime, Prorata };
-   enum class Instrument { AAPL, SPCX };
 
    PriorityAlg alg;
    Instrument instrument;
@@ -63,6 +66,7 @@ struct EventBatch {
 };
 
 struct SubmitOrderRequest {
+   Instrument instrument; // must match instrument of engine
    Side side;
    OrderType orderType;
    TimeInForcePolicy tifPolicy;
@@ -103,8 +107,9 @@ private:
    std::vector<std::unique_ptr<Client>> clients_;
    std::unordered_map<id_type, Client *> idToClient_;
    std::unordered_map<id_type, OrderRecord> idToOrder_;
+   price_type lastTradedPrice{};
 
-   L3OrderBook internal_l3s_;
+   L3OrderBook internal_l3_;
 
    id_type curClientId_{1};
 
@@ -151,5 +156,6 @@ public:
    Client(Client &&rhs) = delete;
    Client operator=(Client &&rhs) = delete;
 };
+}; // namespace clob
 
 #endif

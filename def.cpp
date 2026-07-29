@@ -1,5 +1,7 @@
 #include "def.h"
 
+using namespace clob;
+
 const Client &MatchingEngine::createClient() {
    Client *new_client = new Client(this, nextClientId());
    clients_.emplace_back(std::unique_ptr<Client>(new_client));
