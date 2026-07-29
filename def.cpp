@@ -1,4 +1,5 @@
 #include "def.h"
+#include <variant>
 
 using namespace clob;
 
@@ -24,23 +25,31 @@ decltype(auto) Client::getOrderRecord(id_type orderId) const {
    return owner_->getOrderRecord(*this, orderId);
 }
 
-EventBatch Client::submitOrder(SubmitOrderRequest order_request) {
-   return owner_->submitOrder(*this, order_request);
+EventBatch Client::submitOrder(const SubmitOrderRequest &order_request) {
+   return owner_->process(*this, order_request);
 }
 
-EventBatch Client::cancelOrder(CancelOrderRequest cancelOrderRequest) {
-   return owner_->cancelOrder(*this, cancelOrderRequest);
+EventBatch Client::cancelOrder(const CancelOrderRequest &cancelOrderRequest) {
+   return owner_->process(*this, cancelOrderRequest);
 }
 
-EventBatch Client::replaceOrder(ReplaceOrderRequest replaceOrderRequest) {
-   return owner_->replaceOrder(*this, replaceOrderRequest);
+EventBatch Client::replaceOrder(const ReplaceOrderRequest &replaceOrderRequest) {
+   return owner_->process(*this, replaceOrderRequest);
 }
 
-EventBatch MatchingEngine::submitOrder(const Client &client, SubmitOrderRequest orderRequest) {
+EventBatch
+MatchingEngine::execute(const Client &client, const SubmitOrderRequest &submitOrderRequest, id_type seq) {
 }
 
-EventBatch MatchingEngine::cancelOrder(const Client &client, CancelOrderRequest cancelOrderRequest) {
+EventBatch
+MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOrderRequest, id_type seq) {
 }
 
-EventBatch MatchingEngine::replaceOrder(const Client &client, ReplaceOrderRequest replaceOrderRequest) {
+EventBatch
+MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replaceOrderRequest, id_type seq) {
+}
+
+EventBatch MatchingEngine::process(const Client &client, const Request &rq) {
+   const id_type seq = nextSequence();
+   return std::visit([this, &client, seq](const auto &arg) { return execute(client, arg, seq); }, rq);
 }

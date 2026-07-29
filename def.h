@@ -5,6 +5,7 @@
 #include <cstdint>
 #include <functional>
 #include <optional>
+#include <variant>
 #include <vector>
 #include <memory>
 #include <map>
@@ -117,6 +118,16 @@ private:
       return curClientId_++;
    };
 
+   id_type eventSequence{1};
+
+   id_type nextSequence() {
+      return eventSequence++;
+   };
+
+   EventBatch execute(const Client &client, const SubmitOrderRequest &submitOrderRequest, id_type seq);
+   EventBatch execute(const Client &client, const CancelOrderRequest &cancelOrderRequest, id_type seq);
+   EventBatch execute(const Client &client, const ReplaceOrderRequest &replaceOrderRequest, id_type seq);
+
 public:
    explicit MatchingEngine(const EngineConfig &cfg)
        : config_{cfg} {};
@@ -128,9 +139,8 @@ public:
    const Client &createClient();
    decltype(auto) getOrderRecord(const Client &client, id_type orderId) const;
 
-   EventBatch submitOrder(const Client &client, SubmitOrderRequest submitOrderRequest);
-   EventBatch cancelOrder(const Client &client, CancelOrderRequest cancelOrderRequest);
-   EventBatch replaceOrder(const Client &client, ReplaceOrderRequest replaceOrderRequest);
+   using Request = std::variant<SubmitOrderRequest, CancelOrderRequest, ReplaceOrderRequest>;
+   EventBatch process(const Client &client, const Request &rq);
 };
 
 class Client {
@@ -146,9 +156,9 @@ private:
 public:
    id_type getClientId() const;
    decltype(auto) getOrderRecord(id_type orderId) const;
-   EventBatch submitOrder(SubmitOrderRequest orderRequest);
-   EventBatch cancelOrder(CancelOrderRequest cancelOrderRequest);
-   EventBatch replaceOrder(ReplaceOrderRequest replaceOrderRequest);
+   EventBatch submitOrder(const SubmitOrderRequest &orderRequest);
+   EventBatch cancelOrder(const CancelOrderRequest &cancelOrderRequest);
+   EventBatch replaceOrder(const ReplaceOrderRequest &replaceOrderRequest);
 
    // explicitly prohibit copying/moving clients
    Client(const Client &rhs) = delete;
