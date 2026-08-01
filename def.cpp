@@ -51,5 +51,5 @@ MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replace
 
 EventBatch MatchingEngine::process(const Client &client, const Request &rq) {
    const id_type seq = nextSequence();
-   return std::visit([this, &client, seq](const auto &arg) { return execute(client, arg, seq); }, rq);
+   return std::visit([&](const auto &arg) { return execute(client, arg, seq); }, rq);
 }

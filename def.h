@@ -58,12 +58,11 @@ struct EventBatch {
       price_type newPrice;
    };
 
-   struct L2Delta {
-      std::vector<Trade> trades;
-   };
+   using Event = std::variant<Trade, OrderReplaced, OrderCancelled>;
 
    CommandResult result{CommandResult::None};
    std::optional<RejectReason> rejectReason;
+   std::vector<Event> events;
 };
 
 struct SubmitOrderRequest {
@@ -89,6 +88,8 @@ struct CancelOrderRequest {
 struct OrderRecord : SubmitOrderRequest {
    id_type orderId;
    id_type clientId;
+   quantity_type remainingQuantity{quantity};
+   quantity_type executedQuantity{0};
 };
 
 class MatchingEngine {
@@ -102,7 +103,7 @@ private:
       std::map<price_type, PriceLevel, std::greater<price_type>> bids_;
       std::map<price_type, PriceLevel, std::less<price_type>> asks_;
 
-      std::unordered_set<id_type> inert_stop_orders_;
+      std::unordered_set<id_type> dormant_stops_;
    };
 
    std::vector<std::unique_ptr<Client>> clients_;
