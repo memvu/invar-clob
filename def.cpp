@@ -70,9 +70,9 @@ MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOr
 
       idToOrder_.erase(id);
    }
-   ret.result = clob::EventBatch::CommandResult::Accepted;
+   ret.result = EventBatch::CommandResult::Accepted;
    ret.events.push_back(
-       clob::EventBatch::OrderCancelled(id, clob::EventBatch::OrderCancelled::CancelReason::UserRequest));
+       EventBatch::OrderCancelled(id, EventBatch::OrderCancelled::CancelReason::UserRequest));
 
    return ret;
 }
@@ -80,10 +80,62 @@ MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOr
 EventBatch
 MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replaceOrderRequest, id_type seq) {
    EventBatch ret;
+   auto id{replaceOrderRequest.orderId};
    ret.sequenceNo = seq;
+
+   if (!idToClient_.contains(client.getClientId())) {
+      ret.result = EventBatch::CommandResult::Rejected;
+      ret.rejectReason = EventBatch::RejectReason::InvalidCLientId;
+   } else if (!idToOrder_.contains(id)) {
+      ret.result = EventBatch::CommandResult::Rejected;
+      ret.rejectReason = EventBatch::RejectReason::InvalidOrderId;
+   } else {
+      auto &order = idToOrder_[id];
+      auto &price = order.price;
+
+      if (internal_l3_.dormant_stops_.contains(id)) {
+         if (replaceOrderRequest.new_price != 0)
+            order.price = replaceOrderRequest.new_price;
+         if (replaceOrderRequest.new_quantity != 0)
+            order.quantity = replaceOrderRequest.new_quantity;
+      } else {
+         auto &level = (price < internal_l3_.asks_.begin()->first) ? internal_l3_.bids_[price]
+                                                                   : internal_l3_.asks_[price];
+         if (config_.alg == EngineConfig::PriorityAlg::PriceTime) {
+            // std::swap()
+         }
+      }
+   }
+
+   // process_order();
+
+   return ret;
 }
 
 EventBatch MatchingEngine::process(const Client &client, const Request &rq) {
    const id_type seq = nextSequence();
    return std::visit([&](const auto &arg) { return execute(client, arg, seq); }, rq);
+}
+
+const price_type MatchingEngine::L3OrderBook::getBestBid() const {
+   if (bids_.empty())
+      return 0;
+   return bids_.begin()->first;
+}
+
+const price_type MatchingEngine::L3OrderBook::getBestAsk() const {
+   if (asks_.empty())
+      return 0;
+   return asks_.begin()->first;
+}
+
+bool MatchingEngine::L3OrderBook::priceExists(price_type price) const {
+   return (bids_.contains(price)) || (asks_.contains(price));
+}
+
+MatchingEngine::L3OrderBook::PriceLevel &MatchingEngine::L3OrderBook::getLevel(price_type price) {
+   if (price < getBestAsk()) {
+      return bids_[price];
+   }
+   return asks_[price];
 }

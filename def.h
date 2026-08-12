@@ -77,7 +77,7 @@ struct SubmitOrderRequest {
    OrderType orderType;
    TimeInForcePolicy tifPolicy;
    quantity_type quantity{0};
-   std::optional<price_type> price;
+   price_type price;
    std::optional<price_type> stopPrice;
 };
 
@@ -110,6 +110,14 @@ private:
       std::map<price_type, PriceLevel, std::less<price_type>> asks_;
 
       std::unordered_set<id_type> dormant_stops_;
+
+      const price_type getBestBid() const;
+      const price_type getBestAsk() const;
+
+      bool priceExists(price_type price) const;
+
+      // precondition: price exists in orderbook
+      PriceLevel &getLevel(price_type price);
    };
 
    std::vector<std::unique_ptr<Client>> clients_;
