@@ -1,4 +1,5 @@
 #include "def.h"
+#include <stdexcept>
 #include <variant>
 
 using namespace clob;
@@ -99,8 +100,10 @@ MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replace
          if (replaceOrderRequest.new_quantity != 0)
             order.quantity = replaceOrderRequest.new_quantity;
       } else {
-         auto &level = (price < internal_l3_.asks_.begin()->first) ? internal_l3_.bids_[price]
-                                                                   : internal_l3_.asks_[price];
+         if (!internal_l3_.priceExists(price))
+            throw std::runtime_error("ERROR: OrderID exists but no price match");
+         auto &level = internal_l3_.getLevel(price);
+
          if (config_.alg == EngineConfig::PriorityAlg::PriceTime) {
             // std::swap()
          }
@@ -134,8 +137,31 @@ bool MatchingEngine::L3OrderBook::priceExists(price_type price) const {
 }
 
 MatchingEngine::L3OrderBook::PriceLevel &MatchingEngine::L3OrderBook::getLevel(price_type price) {
-   if (price < getBestAsk()) {
-      return bids_[price];
+   return (price < getBestAsk()) ? bids_[price] : asks_[price];
+}
+
+void MatchingEngine::L3OrderBook::addBid(price_type price, id_type id) {
+   if (bids_.contains(price)) {
+      auto &lv = bids_[price];
+      auto it = std::find(lv.cbegin(), lv.cend(), id);
+      if (it == lv.cend())
+         lv.push_back(id);
+   } else {
+      bids_.insert({price, PriceLevel{id}});
    }
-   return asks_[price];
+}
+
+void MatchingEngine::L3OrderBook::addAsk(price_type price, id_type id) {
+   if (asks_.contains(price)) {
+      auto &lv = asks_[price];
+      auto it = std::find(lv.cbegin(), lv.cend(), id);
+      if (it == lv.cend())
+         lv.push_back(id);
+   } else {
+      asks_.insert({price, PriceLevel{id}});
+   }
+}
+
+void MatchingEngine::L3OrderBook::addStop(id_type id) {
+   dormant_stops_.insert(id);
 }

@@ -111,6 +111,10 @@ private:
 
       std::unordered_set<id_type> dormant_stops_;
 
+      void addBid(price_type price, id_type id);
+      void addAsk(price_type price, id_type id);
+      void addStop(id_type id);
+
       const price_type getBestBid() const;
       const price_type getBestAsk() const;
 
