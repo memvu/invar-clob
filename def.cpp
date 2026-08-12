@@ -57,17 +57,11 @@ MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOr
       ret.rejectReason = EventBatch::RejectReason::InvalidOrderId;
    } else {
       const auto &order = idToOrder_[id];
+      const auto &price = order.price;
 
-      if (internal_l3_.dormant_stops_.contains(id))
-         internal_l3_.dormant_stops_.erase(id);
-      // if not dormant then is resting
-      else {
-         if (order.price < internal_l3_.asks_.begin()->first) {
-            internal_l3_.asks_.erase(id);
-         } else {
-            internal_l3_.bids_.erase(id);
-         }
-      }
+      internal_l3_.removeStop(id);
+      internal_l3_.removeAsk(price, id);
+      internal_l3_.removeBid(price, id);
 
       idToOrder_.erase(id);
    }
