@@ -36,8 +36,8 @@ enum class TimeInForcePolicy { GoodTillCancel, ImmediateOrCancel, FillOrKill };
 
 struct EventBatch {
    enum class CommandResult { Accepted, Rejected, None };
-   // add more reason later
-   enum class RejectReason { None, InvalidCLientId, InvalidQuantity, InvalidInstrument };
+   // TODO: add more reason
+   enum class RejectReason { None, InvalidCLientId, InvalidQuantity, InvalidInstrument, InvalidOrderId };
 
    struct Trade {
       id_type buySideId;
@@ -50,6 +50,11 @@ struct EventBatch {
       enum class CancelReason { UserRequest, UnfilledMarketRemainder, SelfTradeRemainder };
       id_type orderId;
       CancelReason reason;
+
+      OrderCancelled(id_type id, CancelReason rs)
+          : orderId{id}
+          , reason{rs} {
+      }
    };
 
    struct OrderReplaced {
@@ -60,6 +65,7 @@ struct EventBatch {
 
    using Event = std::variant<Trade, OrderReplaced, OrderCancelled>;
 
+   id_type sequenceNo;
    CommandResult result{CommandResult::None};
    std::optional<RejectReason> rejectReason;
    std::vector<Event> events;
@@ -97,7 +103,7 @@ private:
    // default
    const EngineConfig config_;
 
-   class L3OrderBook {
+   struct L3OrderBook {
       using PriceLevel = std::vector<id_type>;
 
       std::map<price_type, PriceLevel, std::greater<price_type>> bids_;

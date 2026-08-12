@@ -39,14 +39,48 @@ EventBatch Client::replaceOrder(const ReplaceOrderRequest &replaceOrderRequest) 
 
 EventBatch
 MatchingEngine::execute(const Client &client, const SubmitOrderRequest &submitOrderRequest, id_type seq) {
+   EventBatch ret;
+   ret.sequenceNo = seq;
 }
 
 EventBatch
 MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOrderRequest, id_type seq) {
+   EventBatch ret;
+   auto id{cancelOrderRequest.orderId};
+   ret.sequenceNo = seq;
+   if (!idToClient_.contains(client.getClientId())) {
+      ret.result = EventBatch::CommandResult::Rejected;
+      ret.rejectReason = EventBatch::RejectReason::InvalidCLientId;
+   } else if (!idToOrder_.contains(id)) {
+      ret.result = EventBatch::CommandResult::Rejected;
+      ret.rejectReason = EventBatch::RejectReason::InvalidOrderId;
+   } else {
+      const auto &order = idToOrder_[id];
+
+      if (internal_l3_.dormant_stops_.contains(id))
+         internal_l3_.dormant_stops_.erase(id);
+      // if not dormant then is resting
+      else {
+         if (order.price < internal_l3_.asks_.begin()->first) {
+            internal_l3_.asks_.erase(id);
+         } else {
+            internal_l3_.bids_.erase(id);
+         }
+      }
+
+      idToOrder_.erase(id);
+   }
+   ret.result = clob::EventBatch::CommandResult::Accepted;
+   ret.events.push_back(
+       clob::EventBatch::OrderCancelled(id, clob::EventBatch::OrderCancelled::CancelReason::UserRequest));
+
+   return ret;
 }
 
 EventBatch
 MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replaceOrderRequest, id_type seq) {
+   EventBatch ret;
+   ret.sequenceNo = seq;
 }
 
 EventBatch MatchingEngine::process(const Client &client, const Request &rq) {
