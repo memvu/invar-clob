@@ -115,6 +115,10 @@ private:
       void addAsk(price_type price, id_type id);
       void addStop(id_type id);
 
+      void removeBid(price_type price, id_type id);
+      void removeAsk(price_type price, id_type id);
+      void removeStop(id_type id);
+
       const price_type getBestBid() const;
       const price_type getBestAsk() const;
 

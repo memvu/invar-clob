@@ -165,3 +165,25 @@ void MatchingEngine::L3OrderBook::addAsk(price_type price, id_type id) {
 void MatchingEngine::L3OrderBook::addStop(id_type id) {
    dormant_stops_.insert(id);
 }
+
+void MatchingEngine::L3OrderBook::removeBid(price_type price, id_type id) {
+   if (bids_.contains(price)) {
+      auto &lv = bids_[price];
+      auto it = std::find(lv.cbegin(), lv.cend(), id);
+      if (it != lv.cend())
+         lv.erase(it);
+   }
+}
+
+void MatchingEngine::L3OrderBook::removeAsk(price_type price, id_type id) {
+   if (asks_.contains(price)) {
+      auto &lv = asks_[price];
+      auto it = std::find(lv.cbegin(), lv.cend(), id);
+      if (it != lv.cend())
+         lv.erase(it);
+   }
+}
+
+void MatchingEngine::L3OrderBook::removeStop(id_type id) {
+   dormant_stops_.erase(id);
+}
