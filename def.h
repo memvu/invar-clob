@@ -83,8 +83,8 @@ struct SubmitOrderRequest {
 
 struct ReplaceOrderRequest {
    id_type orderId;
-   quantity_type new_quantity{0};
-   price_type new_price{0};
+   quantity_type newQuantity{0};
+   std::optional<price_type> newPrice{0};
 };
 
 struct CancelOrderRequest {
