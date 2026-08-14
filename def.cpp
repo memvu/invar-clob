@@ -52,7 +52,7 @@ MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOr
    if (!idToClient_.contains(client.getClientId())) {
       ret.result = EventBatch::CommandResult::Rejected;
       ret.rejectReason = EventBatch::RejectReason::InvalidCLientId;
-   } else if (!idToOrder_.contains(id)) {
+   } else if (!idToOrder_.contains(id) || idToOrder_[id].clientId != client.getClientId()) {
       ret.result = EventBatch::CommandResult::Rejected;
       ret.rejectReason = EventBatch::RejectReason::InvalidOrderId;
    } else {
@@ -81,7 +81,7 @@ MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replace
    if (!idToClient_.contains(client.getClientId())) {
       ret.result = EventBatch::CommandResult::Rejected;
       ret.rejectReason = EventBatch::RejectReason::InvalidCLientId;
-   } else if (!idToOrder_.contains(id)) {
+   } else if (!idToOrder_.contains(id) || idToOrder_[id].clientId != client.getClientId()) {
       ret.result = EventBatch::CommandResult::Rejected;
       ret.rejectReason = EventBatch::RejectReason::InvalidOrderId;
    } else {
