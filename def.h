@@ -97,6 +97,7 @@ struct OrderRecord : SubmitOrderRequest {
    id_type clientId;
    quantity_type remainingQuantity{quantity};
    quantity_type executedQuantity{0};
+   State state;
 };
 
 class MatchingEngine {

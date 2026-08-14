@@ -56,18 +56,18 @@ MatchingEngine::execute(const Client &client, const CancelOrderRequest &cancelOr
       ret.result = EventBatch::CommandResult::Rejected;
       ret.rejectReason = EventBatch::RejectReason::InvalidOrderId;
    } else {
-      const auto &order = idToOrder_[id];
+      auto &order = idToOrder_[id];
       const auto &price = order.price;
+
+      order.state = OrderRecord::State::Cancelled;
 
       internal_l3_.removeStop(id);
       internal_l3_.removeAsk(price, id);
       internal_l3_.removeBid(price, id);
-
-      idToOrder_.erase(id);
+      ret.result = EventBatch::CommandResult::Accepted;
+      ret.events.push_back(
+          EventBatch::OrderCancelled(id, EventBatch::OrderCancelled::CancelReason::UserRequest));
    }
-   ret.result = EventBatch::CommandResult::Accepted;
-   ret.events.push_back(
-       EventBatch::OrderCancelled(id, EventBatch::OrderCancelled::CancelReason::UserRequest));
 
    return ret;
 }
@@ -88,19 +88,12 @@ MatchingEngine::execute(const Client &client, const ReplaceOrderRequest &replace
       auto &order = idToOrder_[id];
       auto &price = order.price;
 
-      if (internal_l3_.dormant_stops_.contains(id)) {
-         if (replaceOrderRequest.new_price != 0)
-            order.price = replaceOrderRequest.new_price;
-         if (replaceOrderRequest.new_quantity != 0)
-            order.quantity = replaceOrderRequest.new_quantity;
-      } else {
-         if (!internal_l3_.priceExists(price))
-            throw std::runtime_error("ERROR: OrderID exists but no price match");
-         auto &level = internal_l3_.getLevel(price);
-
-         if (config_.alg == EngineConfig::PriorityAlg::PriceTime) {
-            // std::swap()
-         }
+      if (replaceOrderRequest.newQuantity <= order.executedQuantity) {
+         ret.result = EventBatch::CommandResult::Rejected;
+         ret.rejectReason = EventBatch::RejectReason::InvalidQuantity;
+      } else if (!internal_l3_.priceExists(price)) {
+         throw std::runtime_error("ERROR: OrderID exists but no price match");
+      } else if () {
       }
    }
 
