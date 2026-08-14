@@ -92,6 +92,7 @@ struct CancelOrderRequest {
 };
 
 struct OrderRecord : SubmitOrderRequest {
+   enum class State { Filled, Active, DormantStop, Cancelled };
    id_type orderId;
    id_type clientId;
    quantity_type remainingQuantity{quantity};
