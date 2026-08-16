@@ -62,7 +62,8 @@ struct EventBatch {
 
       OrderCancelled(id_type id, CancelReason rs)
           : orderId{id}
-          , reason{rs} {
+          , reason{rs}
+      {
       }
    };
 
@@ -93,7 +94,7 @@ struct SubmitOrderRequest {
 struct ReplaceOrderRequest {
    id_type orderId;
    quantity_type newQuantity{0};
-   std::optional<price_type> newPrice{0};
+   price_type newPrice{0};
 };
 
 struct CancelOrderRequest {
@@ -148,13 +149,15 @@ private:
 
    id_type curClientId_{1};
 
-   id_type nextClientId() {
+   id_type nextClientId()
+   {
       return curClientId_++;
    };
 
    id_type eventSequence{1};
 
-   id_type nextSequence() {
+   id_type nextSequence()
+   {
       return eventSequence++;
    };
 
