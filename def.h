@@ -37,7 +37,16 @@ enum class TimeInForcePolicy { GoodTillCancel, ImmediateOrCancel, FillOrKill };
 struct EventBatch {
    enum class CommandResult { Accepted, Rejected, None };
    // TODO: add more reason
-   enum class RejectReason { None, InvalidCLientId, InvalidQuantity, InvalidInstrument, InvalidOrderId };
+   enum class RejectReason {
+      None,
+      InvalidCLientId,
+      InvalidQuantity,
+      InvalidInstrument,
+      InvalidOrderId,
+      OrderAlreadyCancelled,
+      OrderAlreadyFilled,
+      OrderIsDormantStop
+   };
 
    struct Trade {
       id_type buySideId;
