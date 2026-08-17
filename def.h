@@ -165,6 +165,8 @@ private:
    EventBatch execute(const Client &client, const CancelOrderRequest &cancelOrderRequest, id_type seq);
    EventBatch execute(const Client &client, const ReplaceOrderRequest &replaceOrderRequest, id_type seq);
 
+   void match(EventBatch &batch, id_type orderId);
+
 public:
    explicit MatchingEngine(const EngineConfig &cfg)
        : config_{cfg} {};
