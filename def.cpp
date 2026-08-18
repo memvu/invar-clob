@@ -1,4 +1,5 @@
 #include "def.h"
+#include <algorithm>
 #include <stdexcept>
 #include <variant>
 
@@ -181,6 +182,8 @@ bool MatchingEngine::L3OrderBook::priceExists(price_type price) const
 
 MatchingEngine::L3OrderBook::PriceLevel &MatchingEngine::L3OrderBook::getLevel(price_type price)
 {
+   if (!priceExists(price))
+      throw std::logic_error("Price doesnt exist");
    return (bids_.contains(price)) ? bids_[price] : asks_[price];
 }
 
@@ -234,13 +237,4 @@ void MatchingEngine::L3OrderBook::removeAsk(price_type price, id_type id)
 void MatchingEngine::L3OrderBook::removeStop(id_type id)
 {
    dormant_stops_.erase(id);
-}
-
-void MatchingEngine::L3OrderBook::deprioritizeOrder(price_type price, id_type id)
-{
-   if (this->priceExists(price)) {
-      auto &level{this->getLevel(price)};
-      std::erase(level, id);
-      level.push_back(id);
-   }
 }
