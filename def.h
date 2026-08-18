@@ -165,6 +165,35 @@ private:
    EventBatch execute(const Client &client, const CancelOrderRequest &cancelOrderRequest, id_type seq);
    EventBatch execute(const Client &client, const ReplaceOrderRequest &replaceOrderRequest, id_type seq);
 
+   // precondition:
+   // orderId exists in idToOrder_.
+   // The order state is Active.
+   // remainingQuantity is greater than zero.
+   // executedQuantity is less than quantity.
+   // quantity equals executedQuantity plus remainingQuantity.
+   // The order is not in bids_.
+   // The order is not in asks_.
+   // The order is not in dormant_stops_.
+   // The order type is already active.
+   //  The resting book is not crossed.
+   //  batch belongs to the current accepted command.
+   //
+   //  postcondition:
+   // match() should:
+   // - Create Trade events.
+   // - Reduce the incoming order's remaining quantity.
+   // - Reduce each maker's remaining quantity.
+   // - Increase executed quantities.
+   // - Remove filled makers from their price levels.
+   // - Keep filled records in idToOrder_.
+   // - Update lastTradedPrice.
+   //
+   // match() should not:
+   // - Add the incoming order to a price level.
+   // - Apply IOC or FOK remainder rules.
+   // - Cancel the incoming remainder.
+   // - Emit OrderReplaced.
+   // - Activate stops recursively.
    void match(EventBatch &batch, id_type orderId);
 
 public:
